@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PhiloGuessr — 哲学版 GeoGuessr</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+
+    <!-- ============ 开始界面 ============ -->
+    <div id="startScreen" class="screen active">
+      <div class="start-screen">
+        <div class="logo">🏛️</div>
+        <div class="title">PhiloGuessr</div>
+        <div class="subtitle">哲学版 GeoGuessr — 看名言，猜哲人</div>
+
+        <div class="rules">
+          <h3>📜 玩法说明</h3>
+          <p style="margin-bottom:12px">每局 <strong>5 轮</strong>，每轮展示一段哲学名言，猜它出自哪位哲学家。</p>
+          <div class="score-row">
+            <span>🎯 猜对哲学家本人</span>
+            <span class="score-value">5000 分</span>
+          </div>
+          <div class="score-row">
+            <span>🏫 猜对同一流派</span>
+            <span class="score-value">3000 分</span>
+          </div>
+          <div class="score-row">
+            <span>⏳ 同时代 + 同传统</span>
+            <span class="score-value">2000 分</span>
+          </div>
+          <div class="score-row">
+            <span>🌍 同传统（东方/西方）</span>
+            <span class="score-value">1000 分</span>
+          </div>
+          <div class="score-row">
+            <span>❌ 完全猜错</span>
+            <span class="score-value">0 分</span>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" onclick="startGame()">🎮 开始游戏</button>
+      </div>
+    </div>
+
+    <!-- ============ 游戏界面 ============ -->
+    <div id="gameScreen" class="screen">
+      <div class="game-header">
+        <div class="round-info">第 <span id="roundNum">1</span> / <span id="totalRounds">5</span> 轮</div>
+        <div class="score-display">得分：<span class="score-num" id="currentScore">0</span></div>
+      </div>
+
+      <div class="quote-area">
+        <div class="quote-mark">"</div>
+        <div class="quote-text" id="quoteText"></div>
+      </div>
+
+      <div class="selection-area">
+        <div class="selection-label">选择哲学家</div>
+        <div class="search-wrapper">
+          <input
+            type="text"
+            class="search-input"
+            id="searchInput"
+            placeholder="🔍 搜索哲学家姓名..."
+            autocomplete="off"
+            oninput="filterPhilosophers()"
+            onfocus="showDropdown()"
+          >
+          <div class="dropdown" id="dropdown"></div>
+        </div>
+        <div class="selected-display" id="selectedDisplay">
+          <span>✅</span>
+          <span class="sel-name" id="selectedName"></span>
+          <span class="sel-clear" onclick="clearSelection()" title="取消选择">✕</span>
+        </div>
+      </div>
+
+      <div class="submit-row">
+        <button class="btn btn-primary btn-submit" id="submitBtn" disabled onclick="submitGuess()">
+          确认提交
+        </button>
+      </div>
+    </div>
+
+    <!-- ============ 结算界面 ============ -->
+    <div id="endScreen" class="screen">
+      <div class="end-screen">
+        <div class="end-icon">🏆</div>
+        <div class="end-title" id="endRankTitle"></div>
+        <div class="end-rank" id="endRank"></div>
+        <div class="end-desc" id="endDesc"></div>
+
+        <div class="final-score" id="finalScore"></div>
+        <div class="final-max" id="finalMax"></div>
+
+        <div class="round-review" id="roundReview"></div>
+
+        <button class="btn btn-primary btn-restart" onclick="restartGame()">🔄 再来一局</button>
+      </div>
+    </div>
+
+    <!-- ============ 结果弹窗 ============ -->
+    <div class="result-overlay" id="resultOverlay">
+      <div class="result-card">
+        <div class="result-icon" id="resultIcon"></div>
+        <div class="result-score score-fly" id="resultScore"></div>
+        <div class="result-label" id="resultLabel"></div>
+        <div class="result-detail" id="resultDetail"></div>
+        <button class="btn btn-primary btn-next" id="nextBtn" onclick="nextRound()">
+          下一轮 ▶
+        </button>
+        <button class="btn btn-primary btn-next" id="endBtn" style="display:none" onclick="showEndScreen()">
+          查看结果 📊
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="data.js"></script>
+  <script src="game.js"></script>
+  <script>
+    // ========================
+    // UI 控制逻辑
+    // ========================
+    let selectedId = null;
+    let allPhilosophers = [];
+
+    // 初始化
+    function initUI() {
+      allPhilosophers = game.getAllPhilosophers();
+    }
+
+    // 显示/隐藏 界面
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    // 开始游戏
+    function startGame() {
+      game.initGame();
+      selectedId = null;
+      updateGameUI();
+      showScreen('gameScreen');
+      initUI();
+      document.getElementById('searchInput').value = '';
+      document.getElementById('dropdown').classList.remove('show');
+      document.getElementById('selectedDisplay').classList.remove('show');
+      document.getElementById('submitBtn').disabled = true;
+    }
+
+    // 更新游戏界面
+    function updateGameUI() {
+      const roundData = game.startRound();
+      if (!roundData) return;
+
+      document.getElementById('roundNum').textContent = roundData.roundNumber;
+      document.getElementById('totalRounds').textContent = roundData.totalRounds;
+      document.getElementById('quoteText').textContent = roundData.quote;
+      document.getElementById('currentScore').textContent = roundData.score;
+    }
+
+    // 搜索/过滤哲学家
+    function filterPhilosophers() {
+      const input = document.getElementById('searchInput').value.toLowerCase().trim();
+      const dropdown = document.getElementById('dropdown');
+
+      let filtered = allPhilosophers;
+      if (input) {
+        filtered = allPhilosophers.filter(p =>
+          p.name.toLowerCase().includes(input) ||
+          p.school.toLowerCase().includes(input) ||
+          p.era.toLowerCase().includes(input)
+        );
+      }
+
+      dropdown.innerHTML = filtered.map(p =>
+        `<div class="dropdown-item${p.id === selectedId ? ' selected' : ''}"
+              onclick="selectPhilosopher('${p.id}')">
+          <span class="philo-name">${p.name}</span>
+          <span class="philo-school">${p.school}</span>
+        </div>`
+      ).join('');
+
+      dropdown.classList.add('show');
+    }
+
+    function showDropdown() {
+      filterPhilosophers();
+    }
+
+    // 选择哲学家
+    function selectPhilosopher(id) {
+      selectedId = id;
+      const p = allPhilosophers.find(x => x.id === id);
+      if (!p) return;
+
+      document.getElementById('selectedName').textContent = p.name;
+      document.getElementById('selectedDisplay').classList.add('show');
+      document.getElementById('searchInput').value = p.name;
+      document.getElementById('dropdown').classList.remove('show');
+      document.getElementById('submitBtn').disabled = false;
+    }
+
+    function clearSelection() {
+      selectedId = null;
+      document.getElementById('selectedDisplay').classList.remove('show');
+      document.getElementById('searchInput').value = '';
+      document.getElementById('submitBtn').disabled = true;
+      document.getElementById('dropdown').classList.remove('show');
+    }
+
+    // 提交猜测
+    function submitGuess() {
+      if (!selectedId) return;
+
+      const result = game.submitGuess(selectedId);
+      if (!result) return;
+
+      // 显示结果弹窗
+      const overlay = document.getElementById('resultOverlay');
+      const icon = document.getElementById('resultIcon');
+      const score = document.getElementById('resultScore');
+      const label = document.getElementById('resultLabel');
+      const detail = document.getElementById('resultDetail');
+      const nextBtn = document.getElementById('nextBtn');
+      const endBtn = document.getElementById('endBtn');
+
+      if (result.level === 'exact') {
+        icon.textContent = '🎯';
+      } else if (result.level === 'school') {
+        icon.textContent = '👏';
+      } else if (result.level === 'era_tradition') {
+        icon.textContent = '🤔';
+      } else if (result.level === 'tradition') {
+        icon.textContent = '🌍';
+      } else {
+        icon.textContent = '😅';
+      }
+
+      score.textContent = `+${result.score}`;
+      score.className = 'result-score score-fly' + (result.score === 0 ? ' zero' : '');
+
+      if (result.score === 5000) label.textContent = '完美！';
+      else if (result.score >= 2000) label.textContent = '很接近了！';
+      else if (result.score >= 1000) label.textContent = '方向对了！';
+      else label.textContent = '继续加油！';
+
+      detail.innerHTML = `
+        <p>${result.detail}</p>
+        <p style="margin-top:8px;font-size:13px;color:var(--text-muted)">
+          你选了：<strong>${result.guessedName}</strong>
+        </p>
+      `;
+
+      // 当前总分
+      document.getElementById('currentScore').textContent = result.totalScore;
+
+      // 判断是否最后一轮
+      const isLast = game.currentRound + 1 >= game.totalRounds;
+      nextBtn.style.display = isLast ? 'none' : 'inline-block';
+      endBtn.style.display = isLast ? 'inline-block' : 'none';
+
+      overlay.classList.add('show');
+      document.getElementById('submitBtn').disabled = true;
+    }
+
+    // 下一轮
+    function nextRound() {
+      document.getElementById('resultOverlay').classList.remove('show');
+      selectedId = null;
+      document.getElementById('searchInput').value = '';
+      document.getElementById('selectedDisplay').classList.remove('show');
+      document.getElementById('submitBtn').disabled = true;
+      document.getElementById('dropdown').classList.remove('show');
+
+      const status = game.nextRound();
+      if (status.gameOver) {
+        showEndScreen();
+      } else {
+        updateGameUI();
+      }
+    }
+
+    // 显示结算
+    function showEndScreen() {
+      document.getElementById('resultOverlay').classList.remove('show');
+      showScreen('endScreen');
+
+      const rank = game.getRank();
+      document.getElementById('endRankTitle').textContent = rank.title;
+      document.getElementById('endDesc').textContent = rank.desc;
+
+      document.getElementById('finalScore').textContent = game.score;
+      document.getElementById('finalMax').textContent = `满分 ${game.totalRounds * 5000} 分`;
+
+      // 每轮回顾
+      const review = game.getRoundReview();
+      const reviewHtml = review.map(r => {
+        let ptsClass = 'miss';
+        if (r.score === 5000) ptsClass = 'perfect';
+        else if (r.score >= 3000) ptsClass = 'good';
+        else if (r.score >= 1000) ptsClass = 'ok';
+
+        return `
+          <div class="review-item">
+            <div class="review-header">
+              <span class="review-round">第 ${r.roundNumber} 轮</span>
+              <span class="review-points ${ptsClass}">+${r.score}</span>
+            </div>
+            <div class="review-quote">"${r.quote}"</div>
+            <div class="review-answer">
+              你选了：${r.guessedName} &nbsp;|&nbsp;
+              正确：<span class="correct-answer">${r.correctName}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('roundReview').innerHTML = reviewHtml;
+    }
+
+    // 重新开始
+    function restartGame() {
+      startGame();
+    }
+
+    // 点击外部关闭下拉菜单
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.search-wrapper')) {
+        document.getElementById('dropdown').classList.remove('show');
+      }
+    });
+
+    // 键盘支持
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        // 如果结果弹窗可见，触发下一轮
+        const overlay = document.getElementById('resultOverlay');
+        if (overlay.classList.contains('show')) {
+          const isLast = game.currentRound + 1 >= game.totalRounds;
+          if (isLast) {
+            showEndScreen();
+          } else {
+            nextRound();
+          }
+          return;
+        }
+        // 否则如果在游戏界面且已选择，尝试提交
+        if (document.getElementById('gameScreen').classList.contains('active') && selectedId) {
+          submitGuess();
+        }
+      }
+    });
+  </script>
+</body>
+</html>
